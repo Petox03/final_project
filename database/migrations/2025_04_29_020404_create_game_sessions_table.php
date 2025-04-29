@@ -15,6 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->date('played_at');
+            $table->foreignId('word_id')->nullable()->constrained('words')->nullOnDelete();
+            $table->timestamp('answered_at')->nullable();
+            $table->boolean('is_correct')->nullable();
             $table->timestamps();
             $table->unique(['user_id', 'played_at']);
         });

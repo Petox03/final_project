@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('word_id')->constrained('words')->cascadeOnDelete();
-            $table->foreignId('game_session_id')->constrained('game_sessions')->cascadeOnDelete();
             $table->timestamps();
         });
     }

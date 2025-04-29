@@ -12,6 +12,9 @@ class GameSession extends Model
     protected $fillable = [
         'user_id',
         'played_at',
+        'word_id',
+        'answered_at',
+        'is_correct',
     ];
 
     /**
@@ -20,5 +23,13 @@ class GameSession extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relación: una sesión de juego tiene una palabra.
+     */
+    public function word(): BelongsTo
+    {
+        return $this->belongsTo(Word::class);
     }
 }

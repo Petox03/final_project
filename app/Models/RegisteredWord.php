@@ -12,7 +12,6 @@ class RegisteredWord extends Model
     protected $fillable = [
         'user_id',
         'word_id',
-        'game_session_id',
     ];
 
     /**

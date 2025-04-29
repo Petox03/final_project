@@ -51,7 +51,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relación: un usuario tiene muchos registros de palabras jugadas.
+     * Relación: un usuario tiene muchas palabras acertadas.
      */
     public function registeredWords(): HasMany
     {
