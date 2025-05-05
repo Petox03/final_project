@@ -19,6 +19,9 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             WordSeeder::class,
             OptionSeeder::class,
+            NewCategorySeeder::class,
+            NewWordSeeder::class,
+            NewOptionSeeder::class,
         ]);
     }
 }
