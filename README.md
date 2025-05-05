@@ -1,48 +1,188 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## API Endpoints
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Base URL: `https://final-project-master-cyz8nu.laravel.cloud/api`
 
-## About Laravel
+### 1. POST /register
+**Descripción:** Registrar un nuevo usuario.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+**Body (JSON):**
+```json
+{
+  "name": "Juan Pérez",
+  "email": "juan.perez@email.com",
+  "password": "SuperSecreto123"
+}
+```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Respuesta:**
+```json
+{
+  "message": "Usuario registrado correctamente",
+  "user": {
+    "id": 1,
+    "name": "Juan Pérez",
+    "email": "juan.perez@email.com",
+    "created_at": "2025-05-05T08:10:17.000000Z",
+    "updated_at": "2025-05-05T08:10:17.000000Z"
+  },
+  "token": "1|VH7IHZeW41rPQ1TBqHXNCEmvRg0lqyUW8frbufw1474f0f01"
+}
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 2. POST /login
+**Descripción:** Iniciar sesión.
 
-## Learning Laravel
+**Body (JSON):**
+```json
+{
+  "email": "juan.perez@email.com",
+  "password": "SuperSecreto123"
+}
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+**Respuesta:**
+```json
+{
+  "message": "Login exitoso",
+  "token": "2|tESSdtyCBeymqeTr2bm3ZnvsYOffnzEtZGtRKY6dce659d09"
+}
+```
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### 3. POST /logout
+**Descripción:** Cerrar sesión.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
 
-## Laravel Sponsors
+**Body:** `{}`
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+**Respuesta:**
+```json
+{
+  "message": "Sesión cerrada correctamente"
+}
+```
 
-### Premium Partners
+### 4. GET /user
+**Descripción:** Obtener datos del usuario autenticado.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development/)**
-- **[Active Logic](https://activelogic.com)**
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+
+**Respuesta:**
+```json
+{
+  "id": 1,
+  "name": "Juan Pérez",
+  "email": "juan.perez@email.com",
+  "email_verified_at": null,
+  "created_at": "2025-05-05T07:53:56.000000Z",
+  "updated_at": "2025-05-05T07:53:56.000000Z"
+}
+```
+
+### 5. GET /game/categories
+**Descripción:** Obtener todas las categorías.
+
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+
+**Respuesta:**
+```json
+{
+  "categories": [
+    { "id":1, "name":"Filosofía", "description":"Palabras profundas..." },
+    { "id":2, "name":"Ciencia",   "description":"Términos complejos..." },
+    { "id":3, "name":"Literatura","description":"Vocabulario elevado..." },
+    { "id":4, "name":"Política",   "description":"Palabras sofisticadas..." }
+  ]
+}
+```
+
+### 6. GET /game/words
+**Descripción:** Obtener palabras del juego.
+- Parámetros opcionales: `categories[]` (array IDs), `count` (número de palabras).
+- Si ya solicitaste hoy, devuelve error.
+
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+**Query params:** `?categories[]=2&categories[]=1&count=3`
+
+**Respuesta:**
+```json
+{
+  "words": [ /* array de objetos Word con opciones */ ]
+}
+```
+
+### 7. POST /game/answer
+**Descripción:** Enviar respuestas.
+
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+**Body (JSON):**
+```json
+{
+  "answers": [ {"word_id":6, "option_id":16}, … ]
+}
+```
+
+**Respuesta:**
+```json
+{
+  "results": [
+    { "word_id":6, "correct":true, "message":"¡Respuesta correcta!" }
+  ]
+}
+```
+
+### 8. GET /game/history
+**Descripción:** Obtener historial de palabras jugadas.
+
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+
+**Respuesta:**
+```json
+[ /* array de RegisteredWord con relación word */ ]
+```
+
+### 9. GET /game/progress
+**Descripción:** Ver estadísticas del usuario.
+
+**Headers:**
+```
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+```
+
+**Respuesta:**
+```json
+{
+  "total_correct_words":1,
+  "total_days_played":1,
+  "accuracy":100,
+  "current_streak":1
+}
+```
 
 ## Contributing
 
