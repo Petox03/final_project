@@ -12,7 +12,8 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 Route::get('/user', [AuthController::class, 'me'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->prefix('game')->group(function () {
-    Route::get('/word', [GameController::class, 'word']);
+    Route::get('/categories', [GameController::class, 'categories']);
+    Route::get('/words', [GameController::class, 'words']);
     Route::post('/answer', [GameController::class, 'answer']);
     Route::get('/history', [GameController::class, 'history']);
     Route::get('/progress', [GameController::class, 'progress']);

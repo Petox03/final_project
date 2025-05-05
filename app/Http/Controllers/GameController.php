@@ -5,98 +5,133 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Http\Requests\AnswerRequest;
+use App\Http\Requests\AnswerMultipleRequest;
 use App\Models\Word;
 use App\Models\Option;
 use App\Models\RegisteredWord;
 use App\Models\GameSession;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
+use App\Models\Category;
 
 class GameController extends Controller
 {
+
+    public function categories()
+    {
+        $categories = Category::all(); // Obtiene todas las categorías de la DB
+        return response()->json(['categories' => $categories]);
+    }
+
     /**
      * Obtener la palabra diaria para el usuario autenticado.
      */
-    public function word(Request $request): JsonResponse
+    public function words(Request $request): JsonResponse
     {
         $user = $request->user();
         $today = now()->toDateString();
 
-        $session = GameSession::where('user_id', $user->id)->where('played_at', $today)->first();
-        if ($session && $session->word_id) {
-            $word = Word::with('options')->find($session->word_id);
-            return response()->json([
-                'word' => $word,
-                'options' => $word?->options,
-                'already_played' => true,
-            ]);
+        // Verificamos si el usuario ya solicitó palabras hoy.
+        if (GameSession::where('user_id', $user->id)->where('played_at', $today)->exists()) {
+            return response()->json(['message' => 'Ya has solicitado palabras hoy.'], 403);
         }
 
-        $playedWordIds = RegisteredWord::where('user_id', $user->id)->pluck('word_id')->toArray();
-        $word = Word::whereNotIn('id', $playedWordIds)->inRandomOrder()->with('options')->first();
-        if (! $word) {
-            return response()->json([
-                'message' => 'No hay más palabras disponibles para jugar.'
-            ], 404);
+        // Lógica original de selección de palabras.
+        $categories = $request->input('categories', []);
+        $count = (int) $request->input('count', 1);
+        if (empty($categories)) {
+            $categories = Category::inRandomOrder()->limit(1)->pluck('id')->toArray();
+        }
+        $playedIds = RegisteredWord::where('user_id', $user->id)->pluck('word_id')->toArray();
+        $selected = collect();
+        foreach ($categories as $cat) {
+            $w = Word::with('options')
+                ->where('category_id', $cat)
+                ->whereNotIn('id', $playedIds)
+                ->inRandomOrder()
+                ->first();
+            if ($w) {
+                $selected->push($w);
+            }
+        }
+        $needed = max(0, $count - $selected->count());
+        if ($needed > 0) {
+            $more = Word::with('options')
+                ->whereIn('category_id', $categories)
+                ->whereNotIn('id', array_merge($playedIds, $selected->pluck('id')->toArray()))
+                ->inRandomOrder()
+                ->limit($needed)
+                ->get();
+            $selected = $selected->concat($more);
+        }
+        if ($selected->isEmpty()) {
+            return response()->json(['message' => 'No hay palabras disponibles.'], 404);
         }
 
-        DB::beginTransaction();
-        try {
-            $session = GameSession::firstOrCreate([
-                'user_id' => $user->id,
-                'played_at' => $today,
-            ]);
-            $session->word_id = $word->id;
-            $session->save();
-            DB::commit();
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Error al registrar sesión de juego.'], 500);
-        }
-
-        return response()->json([
-            'word' => $word,
-            'options' => $word->options,
-            'already_played' => false,
+        // Se crea la sesión de juego para hoy (se usa null en word_id ya que se entregan varias palabras).
+        GameSession::create([
+            'user_id'   => $user->id,
+            'played_at' => $today,
+            'word_id'   => null,
         ]);
+
+        // La respuesta se mantiene igual.
+        return response()->json(['words' => $selected->take($count)->values()]);
     }
 
     /**
      * Registrar la respuesta del usuario para la palabra diaria.
      */
-    public function answer(AnswerRequest $request): JsonResponse
+    public function answer(AnswerMultipleRequest $request): JsonResponse
     {
         $user = $request->user();
         $today = now()->toDateString();
-        $session = GameSession::where('user_id', $user->id)->where('played_at', $today)->first();
-        if (! $session || ! $session->word_id) {
-            return response()->json(['message' => 'No hay palabra asignada para hoy.'], 404);
+
+        // Obtenemos la sesión de juego de hoy.
+        $gameSession = GameSession::where('user_id', $user->id)->where('played_at', $today)->first();
+
+        if (!$gameSession) {
+            return response()->json(['message' => 'No has solicitado palabras hoy.'], 403);
         }
-        if ($session->answered_at) {
-            return response()->json(['message' => 'Ya has respondido la palabra de hoy.'], 403);
+
+        // Verificamos si el usuario ya respondió.
+        if ($gameSession->answered_at) {
+            return response()->json(['message' => 'Ya has respondido hoy.'], 403);
         }
-        if ($session->word_id !== (int)$request->word_id) {
-            return response()->json(['message' => 'La palabra no corresponde a la sesión de hoy.'], 409);
+
+        $results = [];
+        // Variable para determinar el estado global (opcional).
+        $allCorrect = true;
+        foreach ($request->input('answers') as $item) {
+            $wordId = (int) $item['word_id'];
+            $optionId = (int) $item['option_id'];
+            $option = Option::query()
+                ->where('id', $optionId)
+                ->where('word_id', $wordId)
+                ->first();
+            if (! $option) {
+                $results[] = ['word_id' => $wordId, 'correct' => false, 'message' => 'Opción inválida'];
+                $allCorrect = false;
+                continue;
+            }
+            if ($option->is_correct) {
+                RegisteredWord::firstOrCreate(['user_id' => $user->id, 'word_id' => $wordId]);
+                $results[] = ['word_id' => $wordId, 'correct' => true, 'message' => '¡Respuesta correcta!'];
+            } else {
+                $results[] = ['word_id' => $wordId, 'correct' => false, 'message' => 'Respuesta incorrecta.'];
+                $allCorrect = false;
+            }
         }
-        $option = Option::where('id', $request->option_id)->where('word_id', $request->word_id)->first();
-        if (! $option) {
-            return response()->json(['message' => 'La opción no corresponde a la palabra.'], 422);
-        }
-        $session->answered_at = now();
-        $session->is_correct = $option->is_correct;
-        $session->save();
-        if ($option->is_correct) {
-            RegisteredWord::create([
-                'user_id' => $user->id,
-                'word_id' => $session->word_id,
-            ]);
-        }
-        return response()->json([
-            'correct' => $option->is_correct,
-            'message' => $option->is_correct ? '¡Respuesta correcta!' : 'Respuesta incorrecta.',
+
+        // Marcamos la sesión de juego como respondida.
+        $gameSession->update([
+            'answered_at' => now(),
+            'is_correct'  => $allCorrect,
         ]);
+
+        // La estructura de la respuesta se mantiene igual.
+        return response()->json(['results' => $results]);
     }
+
 
     /**
      * Historial de palabras jugadas por el usuario.
@@ -126,7 +161,7 @@ class GameController extends Controller
             ->whereNotNull('answered_at')
             ->orderByDesc('answered_at')
             ->get()
-            ->takeWhile(fn ($s) => $s->is_correct)
+            ->takeWhile(fn($s) => $s->is_correct)
             ->count();
         return response()->json([
             'total_correct_words' => $total,
