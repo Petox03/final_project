@@ -7,7 +7,7 @@ use Illuminate\Http\JsonResponse;
 use App\Models\RegisteredWord;
 use App\Models\GameSession;
 
-class RegisteredWordsController extends Controller
+class RegisteredWordController extends Controller
 {
     /**
      * Display a listing of the resource.

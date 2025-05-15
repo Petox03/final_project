@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('game_sessions', function (Blueprint $table) {
+        Schema::create('word_event_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->date('played_at');
-            $table->foreignId('word_id')->nullable()->constrained('words')->nullOnDelete();
-            $table->timestamp('answered_at')->nullable();
-            $table->boolean('is_correct')->nullable();
+            $table->foreignId('word_id')->constrained('words')->cascadeOnDelete();
+            $table->enum('event_type', ['consulted', 'answered']);
+            $table->timestamp('event_at');
             $table->timestamps();
-            /* $table->unique(['user_id', 'played_at']); */
+            $table->index(['user_id', 'event_at']);
+            $table->index(['word_id', 'event_at']);
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('game_sessions');
+        Schema::dropIfExists('word_event_logs');
     }
 };

@@ -10,9 +10,11 @@ use App\Models\GameSession;
 use App\Models\Category;
 use App\Models\Option;
 use App\Http\Requests\AnswerMultipleRequest;
+use App\Models\WordEventLog;
 
-class WordsController extends Controller
+class WordController extends Controller
 {
+
     /**
      * Display a listing of the resource.
      */
@@ -42,27 +44,36 @@ class WordsController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
+        // Log de consulta de palabras
+        $user = $request->user();
+        $now = now();
         $user = $request->user();
         $today = now()->toDateString();
 
         // Verificamos si el usuario ya solicitó palabras hoy.
-        if (GameSession::where('user_id', $user->id)->where('played_at', $today)->exists()) {
+        /* if (GameSession::where('user_id', $user->id)->where('played_at', $today)->exists()) {
             return response()->json(['message' => 'Ya has solicitado palabras hoy.'], 403);
-        }
+        } */
 
         // Lógica original de selección de palabras.
         $categories = $request->input('categories', []);
         $count = (int) $request->input('count', 1);
+        $order = $request->input('order', 'asc');
+        $order = $order === 'desc' ? 'desc' : 'asc';
         if (empty($categories)) {
             $categories = Category::inRandomOrder()->limit(1)->pluck('id')->toArray();
         }
         $playedIds = RegisteredWord::where('user_id', $user->id)->pluck('word_id')->toArray();
+
+        // Registrar evento de consulta para cada palabra seleccionada
+        // (aquí aún no sabemos las palabras, así que se hará después de seleccionarlas)
+
         $selected = collect();
         foreach ($categories as $cat) {
             $w = Word::with('options')
                 ->where('category_id', $cat)
+                ->orderBy('id', $order)
                 ->whereNotIn('id', $playedIds)
-                ->inRandomOrder()
                 ->first();
             if ($w) {
                 $selected->push($w);
@@ -73,13 +84,23 @@ class WordsController extends Controller
             $more = Word::with('options')
                 ->whereIn('category_id', $categories)
                 ->whereNotIn('id', array_merge($playedIds, $selected->pluck('id')->toArray()))
-                ->inRandomOrder()
+                ->orderBy('id', $order)
                 ->limit($needed)
                 ->get();
             $selected = $selected->concat($more);
         }
         if ($selected->isEmpty()) {
             return response()->json(['message' => 'No hay palabras disponibles.'], 404);
+        }
+
+        // Log de consulta: registrar un evento por cada palabra mostrada
+        foreach ($selected->take($count) as $word) {
+            WordEventLog::create([
+                'user_id' => $user->id,
+                'word_id' => $word->id,
+                'event_type' => 'consulted',
+                'event_at' => now(),
+            ]);
         }
 
         // Se crea la sesión de juego para hoy (se usa null en word_id ya que se entregan varias palabras).
@@ -122,20 +143,23 @@ class WordsController extends Controller
      */
     public function answer(AnswerMultipleRequest $request): JsonResponse
     {
+        // Log de respuesta de palabras
+        $user = $request->user();
+        $now = now();
         $user = $request->user();
         $today = now()->toDateString();
 
         // Obtenemos la sesión de juego de hoy.
-        $gameSession = GameSession::where('user_id', $user->id)->where('played_at', $today)->first();
+        $gameSession = GameSession::where('user_id', $user->id)/* ->where('played_at', $today) */->latest()->first();
 
         if (!$gameSession) {
             return response()->json(['message' => 'No has solicitado palabras hoy.'], 403);
         }
 
         // Verificamos si el usuario ya respondió.
-        if ($gameSession->answered_at) {
+        /* if ($gameSession->answered_at) {
             return response()->json(['message' => 'Ya has respondido hoy.'], 403);
-        }
+        } */
 
         $results = [];
         // Variable para determinar el estado global (opcional).
@@ -152,6 +176,13 @@ class WordsController extends Controller
                 $allCorrect = false;
                 continue;
             }
+            // Log de respuesta
+            WordEventLog::create([
+                'user_id' => $user->id,
+                'word_id' => $wordId,
+                'event_type' => 'answered',
+                'event_at' => now(),
+            ]);
             if ($option->is_correct) {
                 RegisteredWord::firstOrCreate(['user_id' => $user->id, 'word_id' => $wordId]);
                 $results[] = ['word_id' => $wordId, 'correct' => true, 'message' => '¡Respuesta correcta!'];
